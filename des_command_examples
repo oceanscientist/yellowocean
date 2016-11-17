@@ -1,0 +1,27 @@
+! to copy and paste 
+
+make_des /datascope/pradal-esm/CM2Mc_acdom_100yr_clean_run/history/*ocean_month.nc > acdom.1500-1799.ocean_month.des 
+
+make_des /datascope/pradal-esm/CM2Mc_acdom_100yr_clean_run/history/*ocean_bling.nc > acdom.1500-1799.ocean_bling.des
+
+make_des /datascope/pradal-esm/CM2Mc_acdom_100yr_clean_run/history/*ice_month.nc > acdom.1500-1799.ice_month.des 
+
+make_des /datascope/pradal-esm/CM2Mc_acdomeqzero_100yr/history/*ocean_month.nc > acdomeqzero.1500-1799.ocean_month.des
+
+make_des /datascope/pradal-esm/CM2Mc_acdomeqzero_100yr/history/*ocean_bling.nc > acdomeqzero.1500-1799.ocean_bling.des
+
+make_des /datascope/pradal-esm/CM2Mc_acdomeqzero_100yr/history/*ice_month.nc > acdomeqzero.1500-1799.ice_month.des
+
+make_des /datascope/pradal-esm/aredi800_new_diag/history/1[5-7][0-9][0-9]0101.ocean_month.nc > aredi800.1500-1799.ocean_month.des 
+
+make_des /datascope/pradal-esm/aredi800_new_diag/history/1[5-7][0-9][0-9]0101.ice_month.nc > aredi800.1500-1799.ice_month.des 
+
+make_des /datascope/pradal-esm/aredi800_new_diag/history/1[5-7][0-9][0-9]0101.ocean_bling.nc > aredi800.1500-1799.ocean_bling.des
+
+make_des /datascope/pradal-esm/CM2Mc_acdom_100yr_clean_run/history/17[0-9][0-9]0101.ocean_month.nc > acdom.1700-1799.ocean_month.des
+make_des /datascope/pradal-esm/CM2Mc_acdom_100yr_clean_run/history/17[0-9][0-9]0101.ocean_bling.nc > acdom.1700-1799.ocean_bling.des
+
+make_des /datascope/pradal-esm/CM2Mc_acdomeqzero_100yr/history/17[0-9][0-9]0101.ocean_month.nc > acdomeqzero.1700-1799.ocean_month.des
+make_des /datascope/pradal-esm/CM2Mc_acdomeqzero_100yr/history/17[0-9][0-9]0101.ocean_bling.nc > acdomeqzero.1700-1799.ocean_bling.des
+
+
