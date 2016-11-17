@@ -1,0 +1,132 @@
+#!/bin/bash
+
+# start with acdm clean run ocean month
+dir_in='/datascope/pradal-esm/gkfiles/acdm_runs/CM2Mc_acdm_300yr/history/'
+dir_out='/datascope/pradal-esm/gkfiles/ncra_files/' 
+
+for moy in {1..12}; do
+	mm=$( printf "%02d" ${moy} )  
+	ls ${dir_in}17*.ocean_month.nc | /home/gpark16/bin/bin/ncra -O -F -d time,${mm},,12 ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc
+	
+	# Change the time units to days since ...
+	ncatted -O -h -a units,time,m,c,"days since 1700-1-1 00:00:0.0" ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc
+
+	# change months to days of the year because of issue with averaging (Jan to Jan gives July).
+	if [ "$moy" -eq "1" ]; then
+	ncap -O -h -s "time=time*0+14" ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc
+	elif [ "$moy" -eq "2" ]; then
+	ncap -O -h -s "time=time*0+45" ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc
+	elif [ "$moy" -eq "3" ]; then
+	ncap -O -h -s "time=time*0+73" ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc
+	elif [ "$moy" -eq "4" ]; then
+	ncap -O -h -s "time=time*0+104" ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc
+	elif [ "$moy" -eq "5" ]; then
+	ncap -O -h -s "time=time*0+134" ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc
+	elif [ "$moy" -eq "6" ]; then
+	ncap -O -h -s "time=time*0+165" ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc
+	elif [ "$moy" -eq "7" ]; then
+	ncap -O -h -s "time=time*0+195" ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc
+	elif [ "$moy" -eq "8" ]; then
+	ncap -O -h -s "time=time*0+226" ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc
+	elif [ "$moy" -eq "9" ]; then
+	ncap -O -h -s "time=time*0+257" ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc
+	elif [ "$moy" -eq "10" ]; then
+	ncap -O -h -s "time=time*0+287" ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc
+	elif [ "$moy" -eq "11" ]; then
+	ncap -O -h -s "time=time*0+318" ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc
+	else 
+	ncap -O -h -s "time=time*0+348" ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc ${dir_out}acdm.ncra.ocean_month_${mm}_tmp.nc
+	fi 
+done 
+
+ncrcat -O ${dir_out}acdm.ncra.ocean_month_??_tmp.nc ${dir_out}acdm.ncra.ocean_month100yrs.nc   
+
+rm -r ${dir_out}*tmp.nc
+
+
+#  acdm clean run ice month 
+dir_in='/datascope/pradal-esm/gkfiles/acdm_runs/CM2Mc_acdm_300yr/history/'
+dir_out='/datascope/pradal-esm/gkfiles/ncra_files/' 
+
+for moy in {1..12}; do
+	mm=$( printf "%02d" ${moy} )  
+	ls ${dir_in}17*.ice_month.nc | /home/gpark16/bin/bin/ncra -O -F -d time,${mm},,12 ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc
+	
+	# Change the time units to days since ...
+	ncatted -O -h -a units,time,m,c,"days since 1700-1-1 00:00:0.0" ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc
+
+	# change months to days of the year because of issue with averaging (Jan to Jan gives July).
+	if [ "$moy" -eq "1" ]; then
+	ncap -O -h -s "time=time*0+14" ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc
+	elif [ "$moy" -eq "2" ]; then
+	ncap -O -h -s "time=time*0+45" ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc
+	elif [ "$moy" -eq "3" ]; then
+	ncap -O -h -s "time=time*0+73" ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc
+	elif [ "$moy" -eq "4" ]; then
+	ncap -O -h -s "time=time*0+104" ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc
+	elif [ "$moy" -eq "5" ]; then
+	ncap -O -h -s "time=time*0+134" ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc
+	elif [ "$moy" -eq "6" ]; then
+	ncap -O -h -s "time=time*0+165" ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc
+	elif [ "$moy" -eq "7" ]; then
+	ncap -O -h -s "time=time*0+195" ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc
+	elif [ "$moy" -eq "8" ]; then
+	ncap -O -h -s "time=time*0+226" ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc
+	elif [ "$moy" -eq "9" ]; then
+	ncap -O -h -s "time=time*0+257" ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc
+	elif [ "$moy" -eq "10" ]; then
+	ncap -O -h -s "time=time*0+287" ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc
+	elif [ "$moy" -eq "11" ]; then
+	ncap -O -h -s "time=time*0+318" ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc
+	else 
+	ncap -O -h -s "time=time*0+348" ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc ${dir_out}acdm.ncra.ice_month_${mm}_tmp.nc
+	fi 
+done 
+
+ncrcat -O ${dir_out}acdm.ncra.ice_month_??_tmp.nc ${dir_out}acdm.ncra.ice_month100yrs.nc   
+
+rm -r ${dir_out}*tmp.nc
+
+# acdm clean run ocean bling
+dir_in='/datascope/pradal-esm/gkfiles/acdm_runs/CM2Mc_acdm_300yr/history/'
+dir_out='/datascope/pradal-esm/gkfiles/ncra_files/' 
+
+for moy in {1..12}; do
+	mm=$( printf "%02d" ${moy} )  
+	ls ${dir_in}17*.ocean_bling.nc | /home/gpark16/bin/bin/ncra -O -F -d time,${mm},,12 ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc
+	
+	# Change the time units to days since ...
+	ncatted -O -h -a units,time,m,c,"days since 1700-1-1 00:00:0.0" ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc
+
+	# change months to days of the year because of issue with averaging (Jan to Jan gives July).
+	if [ "$moy" -eq "1" ]; then
+	ncap -O -h -s "time=time*0+14" ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc
+	elif [ "$moy" -eq "2" ]; then
+	ncap -O -h -s "time=time*0+45" ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc
+	elif [ "$moy" -eq "3" ]; then
+	ncap -O -h -s "time=time*0+73" ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc
+	elif [ "$moy" -eq "4" ]; then
+	ncap -O -h -s "time=time*0+104" ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc
+	elif [ "$moy" -eq "5" ]; then
+	ncap -O -h -s "time=time*0+134" ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc
+	elif [ "$moy" -eq "6" ]; then
+	ncap -O -h -s "time=time*0+165" ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc
+	elif [ "$moy" -eq "7" ]; then
+	ncap -O -h -s "time=time*0+195" ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc
+	elif [ "$moy" -eq "8" ]; then
+	ncap -O -h -s "time=time*0+226" ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc
+	elif [ "$moy" -eq "9" ]; then
+	ncap -O -h -s "time=time*0+257" ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc
+	elif [ "$moy" -eq "10" ]; then
+	ncap -O -h -s "time=time*0+287" ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc
+	elif [ "$moy" -eq "11" ]; then
+	ncap -O -h -s "time=time*0+318" ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc
+	else 
+	ncap -O -h -s "time=time*0+348" ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc ${dir_out}acdm.ncra.ocean_bling_${mm}_tmp.nc
+	fi 
+done 
+
+ncrcat -O ${dir_out}acdm.ncra.ocean_bling_??_tmp.nc ${dir_out}acdm.ncra.ocean_bling100yrs.nc   
+
+rm -r ${dir_out}*tmp.nc
+

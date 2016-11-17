@@ -1,0 +1,7 @@
+Directories
+
+Riga_Grace_acdm: for acdm model runs, with the correct paramaterization; 
+Riga_Grace_BLINGlight_acdm: to test the difference between using irr_mix vs. irr_inst in BLING, also using acdm parameterization;
+Riga_Grace_acdm_arctic: modification to the code where north of 65.3 degrees, there is a constant acdm 
+
+The current copy of "Riga_Grace" in the directory is a copy of Riga_Grace_BLINGlight_acdm

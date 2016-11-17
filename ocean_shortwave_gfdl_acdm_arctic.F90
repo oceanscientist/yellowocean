@@ -1,4 +1,4 @@
-module ocean_shortwave_gfdl_mod
+ module ocean_shortwave_gfdl_mod
 !
 !<CONTACT EMAIL="Tony.Rosati@noaa.gov"> A. Rosati
 !</CONTACT>
@@ -168,7 +168,7 @@ use ocean_parameters_mod,     only: PRESSURE, PSTAR, GEOPOTENTIAL, ZSTAR
 use ocean_types_mod,          only: ocean_time_type, ocean_domain_type, ocean_grid_type
 use ocean_types_mod,          only: ocean_prog_tracer_type, ocean_diag_tracer_type
 use ocean_types_mod,          only: ocean_thickness_type, ocean_options_type
-use ocean_workspace_mod,      only: wrk1, wrk2, wrk3, wrk4 
+use ocean_workspace_mod,      only: wrk1, wrk2, wrk3, wrk4, wrk5, kd_red, kd_blue !wrk5, kd red and blue GKIM 
 
 implicit none
 
@@ -176,7 +176,10 @@ private
 
 ! for diagnostics 
 integer :: id_sat_chl  =-1
+integer :: id_sat_acdom  =-1   !GKIM
 integer :: id_f_vis    =-1
+integer :: id_kd_red   =-1     !GKIM
+integer :: id_kd_blue   =-1     !GKIM
 logical :: used
 
 ! for vertical coordinate 
@@ -188,6 +191,7 @@ integer :: id_sw_morel_mom4p0
 
 integer :: index_chl
 integer :: sbc_chl
+integer :: sbc_acdom  !GKIM 
 logical :: verbose_flag=.false.
 
 #include <ocean_memory.h>
@@ -196,11 +200,13 @@ logical :: verbose_flag=.false.
   real, dimension(isd:ied,jsd:jed)      :: sw_fk_zt    ! sw (radiation) fractional decay on t grid
   real, dimension(isd:ied,jsd:jed)      :: sw_fk_zw    ! sw (radiation) fractional decay on w grid
   real, dimension(isd:ied,jsd:jed)      :: sat_chl     ! chlorophyll concentration (mg/m^3) (a proxy for color)   
+  real, dimension(isd:ied,jsd:jed)      :: sat_acdom     ! chlorophyll concentration (mg/m^3) (a proxy for color)   ! GKIM
   real, dimension(isd:ied,jsd:jed,0:nk) :: sw_frac_zw  ! fractional short wave radiation on w-points     
 #else  
   real, allocatable, dimension(:,:)   :: sw_fk_zt    ! sw (radiation) fractional decay on t grid
   real, allocatable, dimension(:,:)   :: sw_fk_zw    ! sw (radiation) fractional decay on w grid
   real, allocatable, dimension(:,:)   :: sat_chl     ! chlorophyll concentration (mg/m^3) (a proxy for color)   
+  real, allocatable, dimension(:,:)   :: sat_acdom     ! chlorophyll concentration (mg/m^3) (a proxy for color)   ! GKIM
   real, allocatable, dimension(:,:,:) :: sw_frac_zw  ! fractional short wave radiation on w-points  
 #endif
 
@@ -225,18 +231,22 @@ private sw_morel_mom4p0
 logical :: use_this_module        = .false.
 logical :: use_sw_morel_mom4p0    = .false.
 logical :: read_chl               = .false.
+logical :: read_acdom             = .true.   !GKIM
+logical :: clear_arctic           = .false.   !GKIM ONLY one of clear arctic OR dark arctic should be true at one time
+logical :: dark_arctic            = .false.   !GKIM ONLY one of clear arctic or dark arctic should be true at one time 
 logical :: optics_morel_antoine   = .false.
-logical :: optics_manizza         = .false.
+logical :: optics_manizza         = .true.   !GKIM
 logical :: module_is_initialized  = .FALSE.
 logical :: debug_this_module      = .false. 
-logical :: enforce_sw_frac        = .true. 
-logical :: override_f_vis         = .true. 
+logical :: enforce_sw_frac        = .true.    !GKIM needs to be true 
+logical :: override_f_vis         = .true.    !GKIM needs to be true
 logical :: sw_morel_fixed_depths  = .false. 
 logical :: optics_for_uniform_chl = .false. 
 
 
 ! (mg/m^3) default concentration 0.08 roughly yields Jerlov Type 1A optics
 real :: chl_default = 0.08  
+real :: acdom_default = 0.01  
 
 ! maximum depth (m) of solar penetration. 
 ! below, penetration is exponentially small and so is ignored
@@ -246,6 +256,7 @@ real :: zmax_pen    = 120.0
 real :: sw_frac_top = 0.0   
 
 namelist /ocean_shortwave_gfdl_nml/ use_this_module, read_chl, chl_default,       &
+                                    read_acdom, clear_arctic, dark_arctic,        & !GKIM add
                                     zmax_pen, sw_frac_top, debug_this_module,     &
                                     enforce_sw_frac, override_f_vis,              &
                                     sw_morel_fixed_depths, optics_for_uniform_chl,&
@@ -280,6 +291,11 @@ contains
     real, dimension(isd:ied,jsd:jed)   :: chl_data
 #else
     real, allocatable, dimension(:,:)  :: chl_data
+#endif
+#ifdef MOM4_STATIC_ARRAYS    
+    real, dimension(isd:ied,jsd:jed)   :: acdom_data
+#else
+    real, allocatable, dimension(:,:)  :: acdom_data
 #endif
   integer :: stdoutunit,stdlogunit 
   stdoutunit=stdout();stdlogunit=stdlog() 
@@ -321,7 +337,21 @@ contains
             write(stdoutunit,'(a)') &
             '=>Note: Using shortwave penetration with GFDL formulaton & Manizza etal optics.'
         endif
-
+        if(read_acdom .and. optics_manizza) then 
+            Ocean_options%shortwave = 'Used GFDL shortwave penetration module with Manizza etal optics with sat acdom'
+            write(stdoutunit,'(a)') &
+            '=>Note: Using shortwave penetration with GFDL formulaton & Manizza etal optics with sat acdom'
+        endif
+        if(read_acdom .and. optics_manizza .and. clear_arctic) then 
+            Ocean_options%shortwave = 'Used GFDL shortwave penetration module with Manizza etal optics with sat acdom with clear arctic kd override north of arctic circle'
+            write(stdoutunit,'(a)') &
+            '=>Note: Using shortwave penetration with GFDL formulaton & Manizza etal optics with sat acdom with clear arctic kd override north of arctic circle'
+        endif
+        if(read_acdom .and. optics_manizza .and. dark_arctic) then 
+            Ocean_options%shortwave = 'Used GFDL shortwave penetration module with Manizza etal optics with sat acdom with dark arctic acdm override north of arctic circle'
+            write(stdoutunit,'(a)') &
+            '=>Note: Using shortwave penetration with GFDL formulaton & Manizza etal optics with sat acdom with dark arctic acdm override north of arctic circle'
+        endif
         if(.not. optics_morel_antoine .and. .not. optics_manizza) then 
            call mpp_error(FATAL, '==>Error: Must choose an optics scheme for shortwave penetration.')
         endif 
@@ -334,7 +364,6 @@ contains
         Ocean_options%shortwave = 'Did NOT use any shortwave penetration option.'
         return 
     endif
-
     if(use_sw_morel_mom4p0) then 
         call mpp_error(NOTE, '==>Note: Using use_sw_morel_mom4p0=.true. Recommend use_sw_morel_mom4p0=.false.')
     endif
@@ -366,12 +395,16 @@ contains
 #ifndef MOM4_STATIC_ARRAYS    
     allocate( chl_data(isd:ied,jsd:jed))
     allocate( sat_chl(isd:ied,jsd:jed))
+    allocate( sat_acdom(isd:ied,jsd:jed))  ! GKIM
+    allocate( acdom_data(isd:ied,jsd:jed))
     allocate( sw_fk_zt(isd:ied,jsd:jed))
     allocate( sw_fk_zw(isd:ied,jsd:jed))
     allocate( sw_frac_zw(isd:ied,jsd:jed,0:nk))
 #endif
     chl_data(:,:)     = 0.0 
     sat_chl(:,:)      = 0.0
+    sat_acdom(:,:)    = 0.0   ! GKIM
+    acdom_data(:,:)     = 0.0 
     sw_fk_zt(:,:)     = 0.0 
     sw_fk_zw(:,:)     = 0.0 
     sw_frac_zw(:,:,:) = 0.0
@@ -381,6 +414,7 @@ contains
     id_sw_morel_mom4p0 = mpp_clock_id('(Ocean shortwave morel pen-mom4p0)' ,grain=CLOCK_ROUTINE)
 
     sat_chl(:,:)   = chl_default*Grd%tmask(:,:,1)
+    sat_acdom(:,:) = acdom_default*Grd%tmask(:,:,1)
 
     index_chl = fm_get_index('/ocean_mod/diag_tracers/chl')
     
@@ -422,6 +456,38 @@ contains
              '==>Note: Setting chl=chl_default in shortwave_gfdl_init.')
 
     endif  ! endif for read_chl 
+
+    ! for reading acdom climatology data  ! GKIM
+    if(read_acdom) then 
+
+        call mpp_error(NOTE, &
+             '==>Note: Reading in acdom from data file for shortwave penetration.')
+
+        ! get the unit number "sbc_acdom" for reading chl data 
+        sbc_acdom = init_external_field('INPUT/acdom','acdom',domain=Domain%domain2d)
+        if (sbc_acdom == -1) then 
+            call mpp_error(FATAL, &
+                 '==>Error in ocean_shortwave_gfdl_mod: failure to find sbc_acdom data file')
+        endif
+
+        ! update chl in case of restart
+        acdom_data = 0.0
+        call time_interp_external(sbc_acdom, Time%model_time, acdom_data, verbose=debug_this_module)
+        do j=jsc,jec
+           do i=isc,iec
+              sat_acdom(i,j) = Grd%tmask(i,j,1)*max(0.0,acdom_data(i,j))
+           enddo
+        enddo
+
+        id_sat_acdom = register_diag_field ('ocean_model', 'sat_acdom', &
+             Grid%tracer_axes(1:2), Time%model_time, 'acdom', &
+             'm^-1',missing_value=missing_value, range=(/-10.0,10.0/))
+
+    else
+        call mpp_error(NOTE, &
+             '==>Note: Setting acdom=acdom_default in shortwave_gfdl_init.')
+
+    endif  ! endif for read_acdom 
 
 
     if(sw_frac_top==0.0) then 
@@ -482,6 +548,18 @@ contains
                Grid%tracer_axes(1:2), Time%model_time,                &
                'Fraction of incoming shortwave in the visible range', &
                'dimensionless',missing_value=missing_value, range=(/-10.0,10.0/))
+
+    !GKIM start
+    id_kd_red = register_diag_field ('ocean_model', 'kd_red',           &
+               Grid%tracer_axes(1:3), Time%model_time,                &
+               'diffuse attenuation coefficient for red band', &
+               'm^-1',missing_value=missing_value, range=(/-10.0,10.0/))
+
+    id_kd_blue = register_diag_field ('ocean_model', 'kd_blue',           &
+               Grid%tracer_axes(1:3), Time%model_time,                &
+               'diffuse attenuation coefficient for blue band', &
+               'm^-1',missing_value=missing_value, range=(/-10.0,10.0/))
+    !GKIM end
 
 end subroutine ocean_shortwave_gfdl_init
 ! </SUBROUTINE> NAME="ocean_shortwave_gfdl_init"
@@ -548,7 +626,7 @@ subroutine sw_source_gfdl(Time, Thickness, T_diag, swflx, swflx_vis, index_irr, 
   real, dimension(isd:ied,jsd:jed)  :: f_vis
   real, dimension(isd:ied,jsd:jed)  :: zt_sw
   real, dimension(isd:ied,jsd:jed)  :: zw_sw
-  real, dimension(isd:ied,jsd:jed)  :: chl_data
+  real, dimension(isd:ied,jsd:jed)  :: chl_data, acdom_data !GKIM
 
   real    :: div_sw 
   integer :: i, j, k
@@ -575,6 +653,7 @@ subroutine sw_source_gfdl(Time, Thickness, T_diag, swflx, swflx_vis, index_irr, 
   zt_sw(:,:)         = 0.0
   zw_sw(:,:)         = 0.0
   chl_data(:,:)      = 0.0
+  acdom_data(:,:)    = 0.0  !GKIM
   sw_frac_zw(:,:,:)  = 0.0  
 
 
@@ -588,6 +667,19 @@ subroutine sw_source_gfdl(Time, Thickness, T_diag, swflx, swflx_vis, index_irr, 
       enddo
     enddo
     if (id_sat_chl > 0) used = send_data (id_sat_chl, sat_chl(:,:), &
+                               Time%model_time,rmask=Grd%tmask(:,:,1), &
+                               is_in=isc, js_in=jsc, ie_in=iec, je_in=jec)
+  endif
+  ! fill sat_acdom with time interpolated acdom data !GKIM
+  if (read_acdom) then
+    acdom_data=0.0
+    call time_interp_external(sbc_acdom, Time%model_time, acdom_data, verbose=debug_this_module)
+    do j=jsc,jec
+      do i=isc,iec
+        sat_acdom(i,j) = Grd%tmask(i,j,1)*max(0.0,acdom_data(i,j))
+      enddo
+    enddo
+    if (id_sat_acdom > 0) used = send_data (id_sat_acdom, sat_acdom(:,:), &
                                Time%model_time,rmask=Grd%tmask(:,:,1), &
                                is_in=isc, js_in=jsc, ie_in=iec, je_in=jec)
   endif
@@ -732,7 +824,99 @@ subroutine sw_source_gfdl(Time, Thickness, T_diag, swflx, swflx_vis, index_irr, 
 
 
   ! choose the Manizza etal optics for computing shortwave penetration 
-  if (optics_manizza) then
+! if (optics_manizza) then
+
+
+      ! for restart reproducibility, need to use time
+      ! independent depth_swt array.  more accurate is to use 
+      ! depth_zwt, but use of depth_zwt breaks restart 
+      ! reproducibility.   
+!      if(vert_coordinate==PRESSURE .or. vert_coordinate==PSTAR) then 
+!          do k=1,nk
+!             do j=jsd,jed
+!                do i=isd,ied
+!                   wrk4(i,j,k) = Thickness%depth_swt(i,j,k)*c2dbars
+!                enddo
+!             enddo
+!          enddo
+!      elseif(vert_coordinate==GEOPOTENTIAL .or. vert_coordinate==ZSTAR) then 
+!          do k=1,nk
+!             do j=jsd,jed
+!                do i=isd,ied
+!                  wrk4(i,j,k) = Thickness%depth_swt(i,j,k)
+!                enddo
+!             enddo
+!          enddo
+!      else 
+!          do k=1,nk
+!             do j=jsd,jed
+!                do i=isd,ied
+!                   wrk4(i,j,k) = Thickness%depth_zwt(i,j,k)
+!                enddo
+!             enddo
+!          enddo
+!      endif
+!
+
+      ! wrk3 will contain the chl concentration array 
+!      wrk3(:,:,:) = 0.0
+!
+!      ! assume chl data to be constant with depth (not always a good assumption)
+!      if(read_chl) then 
+!          do k=1,nk-1
+!             do j=jsc,jec
+!                do i=isc,iec
+!                   wrk3(i,j,k) = sat_chl(i,j)
+!                enddo
+!             enddo
+!          enddo
+!
+      ! take chl from prognostic 3d ecosystem model 
+!      else 
+!          do k=1,nk-1
+!             do j=jsc,jec
+!                do i=isc,iec
+!                   wrk3(i,j,k) = T_diag(index_chl)%field(i,j,k)
+!                enddo
+!             enddo
+!          enddo
+!      endif
+
+!      wrk1(:,:,:) = 0.0  ! temporary for red_frac_zw
+!      wrk2(:,:,:) = 0.0  ! temporary for blu_frac_zw
+
+      ! compute shortwave penetration using Manizza etal optics 
+!      do j=jsc,jec
+!         do i=isc,iec
+!            if (Grd%tmask(i,j,1) > 0.0) then
+
+!                k=1
+!                wrk1(i,j,k) =                                  &
+!                     0.5*exp(-Thickness%dzt(i,j,k)*(0.225+0.037*wrk3(i,j,k)**0.629))
+!                wrk2(i,j,k) =                                  &
+!                     0.5*exp(-Thickness%dzt(i,j,k)*(0.0232+0.074*wrk3(i,j,k)**0.674))
+!                sw_frac_zw(i,j,k) = f_vis(i,j)*(wrk1(i,j,k) + wrk2(i,j,k))
+!                sw_frac_zt(i,j,k) = 0.5*(f_vis(i,j) + sw_frac_zw(i,j,1))
+!
+!                do k=2,nk-1
+!                   if (wrk4(i,j,k) < zmax_pen) then
+!                       wrk1(i,j,k) = wrk1(i,j,k-1) &
+!                            *exp(-Thickness%dzt(i,j,k)*(0.2250+0.037*wrk3(i,j,k)**0.629))
+!                       wrk2(i,j,k) = wrk2(i,j,k-1) &
+!                            *exp(-Thickness%dzt(i,j,k)*(0.0232+0.074*wrk3(i,j,k)**0.674))
+!                       sw_frac_zw(i,j,k)  = f_vis(i,j)*(wrk1(i,j,k) + wrk2(i,j,k))
+!                       sw_frac_zt(i,j,k)  = &
+!                            0.5*(sw_frac_zw(i,j,k-1) + sw_frac_zw(i,j,k))
+!                   endif
+!                enddo
+!
+!            endif
+!         enddo
+!      enddo
+!
+!  endif  ! endif for optics_manizza
+
+  if (optics_manizza) then    !GKIM
 
 
       ! for restart reproducibility, need to use time
@@ -768,6 +952,9 @@ subroutine sw_source_gfdl(Time, Thickness, T_diag, swflx, swflx_vis, index_irr, 
 
       ! wrk3 will contain the chl concentration array 
       wrk3(:,:,:) = 0.0
+      ! wrk5 will contain the acdom GKIM
+      wrk5(:,:,:) = 0.0
+
 
       ! assume chl data to be constant with depth (not always a good assumption)
       if(read_chl) then 
@@ -778,8 +965,7 @@ subroutine sw_source_gfdl(Time, Thickness, T_diag, swflx, swflx_vis, index_irr, 
                 enddo
              enddo
           enddo
-
-      ! take chl from prognostic 3d ecosystem model 
+         ! take chl from prognostic 3d ecosystem model 
       else 
           do k=1,nk-1
              do j=jsc,jec
@@ -788,11 +974,131 @@ subroutine sw_source_gfdl(Time, Thickness, T_diag, swflx, swflx_vis, index_irr, 
                 enddo
              enddo
           enddo
-      endif
+      endif ! endif for read_chl
+         ! assume acdom data to be constant with depth (not always a good assumption)
+      if(read_acdom) then 
+         do k=1,nk-1
+            do j=jsc,jec
+               do i=isc,iec
+                  wrk5(i,j,k) = sat_acdom(i,j)
+               enddo
+            enddo
+         enddo
+      endif !endif for read_acdom
 
+      ! CLEAR ARCTIC CASE
+      if(clear_arctic) then        
+
+      ! assume chl data to be constant with depth (not always a good assumption)
+         if(read_chl) then 
+             do k=1,nk-1
+                do j=jsc,jec
+                   do i=isc,iec
+                      if (Grd%yt(i,j) > 66.7 ) then ! GKIM
+                         wrk3(i,j,k) = 0.0
+                      else
+                         wrk3(i,j,k) = sat_chl(i,j)
+                      endif
+                   enddo
+                enddo
+             enddo
+      ! take chl from prognostic 3d ecosystem model 
+         else 
+             do k=1,nk-1
+                do j=jsc,jec
+                   do i=isc,iec
+                      if (Grd%yt(i,j) > 66.7 ) then ! GKIM
+                         wrk3(i,j,k) = 0.0
+                      else
+                         wrk3(i,j,k) = T_diag(index_chl)%field(i,j,k)
+                      endif
+                   enddo
+                enddo
+             enddo
+         endif ! end if for read chl
+         ! assume acdom data to be constant with depth (not always a good assumption)
+         if(read_acdom) then 
+            do k=1,nk-1
+               do j=jsc,jec
+                  do i=isc,iec
+                     if (Grd%yt(i,j) > 66.7 ) then ! GKIM
+                        wrk5(i,j,k) = 0.0 
+                     else 
+                        wrk5(i,j,k) = sat_acdom(i,j)
+                     endif
+                  enddo
+               enddo
+            enddo
+         endif ! endif for read_acdom
+      else ! else for clear_arctic
+      endif ! endif for clear_arctic 
+ 
+      if(dark_arctic) then !this option makes the Arctic Ocean optically DARK by setting the acdm values artifically high   
+         ! no change to chl with dark arctic case
+         if(read_chl) then 
+             do k=1,nk-1
+                do j=jsc,jec
+                   do i=isc,iec
+                      wrk3(i,j,k) = sat_chl(i,j)
+                   enddo
+                enddo
+             enddo
+         ! take chl from prognostic 3d ecosystem model 
+         else 
+             do k=1,nk-1
+                do j=jsc,jec
+                   do i=isc,iec
+                      wrk3(i,j,k) = T_diag(index_chl)%field(i,j,k)
+                   enddo
+                enddo
+             enddo
+         endif ! endif for read chl
+         ! assume acdom data to be constant with depth (not always a good assumption)
+         if(read_acdom) then 
+            do k=1,nk-1
+               do j=jsc,jec
+                  do i=isc,iec
+                     if (Grd%yt(i,j) > 66.7 ) then ! GKIM
+                        wrk5(i,j,k) = 1.0 !!! this value is ARTIFICALLY HIGH for the test case COME BACK TO FIX IT LATER 
+                     else 
+                        wrk5(i,j,k) = sat_acdom(i,j)
+                     endif
+                  enddo
+               enddo
+            enddo
+         endif !endif for read_acdom
+      else ! else for dark_arctic  
+      endif !endif for dark_arctic     
+      
+      
+      ! calculate kd GKIM
+      
+      kd_red(:,:,:) = 0.0  ! GKIM for kd_red
+      kd_blue(:,:,:) = 0.0  ! GKIM for kd_blue
+      
+      do j=jsc,jec
+         do i=isc,iec
+            if (Grd%tmask(i,j,1) > 0.0) then
+          
+                k=1
+                kd_red(i,j,k) = 0.225+0.037*wrk3(i,j,k)**0.629 ! kd_red
+                kd_blue(i,j,k) = 0.0232+0.0513*wrk3(i,j,k)**0.668+0.71*wrk5(i,j,k)**1.13 ! kd_blue
+
+                do k=2,nk-1
+                   if (wrk4(i,j,k) < zmax_pen) then
+                   kd_red(i,j,k) = 0.225+0.037*wrk3(i,j,k)**0.629 ! kd_red
+                   kd_blue(i,j,k) = 0.0232+0.0513*wrk3(i,j,k)**0.668+0.71*wrk5(i,j,k)**1.13 ! kd_blue                 
+                   endif
+                enddo
+            endif
+         enddo
+      enddo
+      ! GKIM 
+
+      !variables for fraction of light
       wrk1(:,:,:) = 0.0  ! temporary for red_frac_zw
       wrk2(:,:,:) = 0.0  ! temporary for blu_frac_zw
-
+      
       ! compute shortwave penetration using Manizza etal optics 
       do j=jsc,jec
          do i=isc,iec
@@ -800,18 +1106,18 @@ subroutine sw_source_gfdl(Time, Thickness, T_diag, swflx, swflx_vis, index_irr, 
 
                 k=1
                 wrk1(i,j,k) =                                  &
-                     0.5*exp(-Thickness%dzt(i,j,k)*(0.225+0.037*wrk3(i,j,k)**0.629))
+                     0.5*exp(-Thickness%dzt(i,j,k)*(kd_red(i,j,k)))   !GKIM 
                 wrk2(i,j,k) =                                  &
-                     0.5*exp(-Thickness%dzt(i,j,k)*(0.0232+0.074*wrk3(i,j,k)**0.674))
+                     0.5*exp(-Thickness%dzt(i,j,k)*(kd_blue(i,j,k)))   !GKIM 
                 sw_frac_zw(i,j,k) = f_vis(i,j)*(wrk1(i,j,k) + wrk2(i,j,k))
                 sw_frac_zt(i,j,k) = 0.5*(f_vis(i,j) + sw_frac_zw(i,j,1))
 
                 do k=2,nk-1
                    if (wrk4(i,j,k) < zmax_pen) then
                        wrk1(i,j,k) = wrk1(i,j,k-1) &
-                            *exp(-Thickness%dzt(i,j,k)*(0.2250+0.037*wrk3(i,j,k)**0.629))
+                            *exp(-Thickness%dzt(i,j,k)*(kd_red(i,j,k)))   !GKIM 
                        wrk2(i,j,k) = wrk2(i,j,k-1) &
-                            *exp(-Thickness%dzt(i,j,k)*(0.0232+0.074*wrk3(i,j,k)**0.674))
+                            *exp(-Thickness%dzt(i,j,k)*(kd_blue(i,j,k)))   !GKIM 
                        sw_frac_zw(i,j,k)  = f_vis(i,j)*(wrk1(i,j,k) + wrk2(i,j,k))
                        sw_frac_zt(i,j,k)  = &
                             0.5*(sw_frac_zw(i,j,k-1) + sw_frac_zw(i,j,k))
@@ -822,7 +1128,17 @@ subroutine sw_source_gfdl(Time, Thickness, T_diag, swflx, swflx_vis, index_irr, 
          enddo
       enddo
 
-  endif  ! endif for optics_manizza
+! diagnostics
+
+    if (id_kd_red > 0) used =  send_data (id_kd_red, kd_red(:,:,:), &
+                               Time%model_time,rmask=Grd%tmask(:,:,:), &
+                               is_in=isc, js_in=jsc, ks_in=1, ie_in=iec, je_in=jec, ke_in=nk)
+
+    if (id_kd_blue > 0) used = send_data (id_kd_blue, kd_blue(:,:,:), &
+                               Time%model_time,rmask=Grd%tmask(:,:,:), &
+                               is_in=isc, js_in=jsc, ks_in=1, ie_in=iec, je_in=jec, ke_in=nk)
+
+  endif  ! endif for read_acdom .and. optics_manizza
 
   
   ! when chlorophyll is being read through T_diag (not from climatology).
